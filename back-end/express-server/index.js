@@ -14,7 +14,7 @@ app.post('/landmarks', async (req, res) => {
 
   try {
     // Forward the data to the Flask server
-    const flaskServerURL = 'http://localhost:5000/endpoint'; // Replace with your Flask server's details
+    const flaskServerURL = 'http://flask_app:5000/endpoint'; // Replace with your Flask server's details
     const response = await axios.post(flaskServerURL, req.body);
 
     // Respond to the client with the Flask server's response
