@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import "./App.css";
 import {
   FilesetResolver,
@@ -6,6 +6,8 @@ import {
   PoseLandmarker,
 } from "@mediapipe/tasks-vision";
 import { drawConnectors, drawLandmarks, lerp } from "@mediapipe/drawing_utils";
+import { HAND_CONNECTIONS, POSE_CONNECTIONS } from './connections';
+
 
 let handLandmarker: HandLandmarker;
 let poseLandmarker: PoseLandmarker;
@@ -13,58 +15,14 @@ let lastVideoTime = -1;
 let results: { landmarks?: any[] } = {};
 let pose_results: { landmarks?: any[] } = {};
 
-const HAND_CONNECTIONS: [number, number][] = [
-  [0, 1],
-  [1, 2],
-  [2, 3],
-  [3, 4],
-  [0, 5],
-  [5, 6],
-  [6, 7],
-  [7, 8],
-  [0, 9],
-  [9, 10],
-  [10, 11],
-  [11, 12],
-  [0, 13],
-  [13, 14],
-  [14, 15],
-  [15, 16],
-  [0, 17],
-  [17, 18],
-  [18, 19],
-  [19, 20],
-];
-
-const POSE_CONNECTIONS: [number, number][] = [
-  [11, 12],
-  [11, 13],
-  [11, 23],
-  [12, 14],
-  [12, 24],
-  [13, 15],
-  [14, 16],
-  [15, 17],
-  [16, 18],
-  [17, 19],
-  [18, 20],
-  [19, 21],
-  [20, 22],
-  [23, 25],
-  [23, 24],
-  [25, 27],
-  [26, 28],
-  [27, 29],
-  [28, 30],
-  [29, 31],
-  [30, 32],
-  [31, 32],
-];
 
 function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const [collectedHandFrames, setCollectedHandFrames] = useState<any[]>([]);
+  const [collectedPoseFrames, setCollectedPoseFrames] = useState<any[]>([]);
+  const [collectedRequest, setCollectedRequest] = useState<any>();
 
   ///function to initialize webcam
   const initializeWebcam = async () => {
@@ -107,6 +65,7 @@ function App() {
   };
 
   const startPrediction = () => {
+    console.log("start prediction button is clicked!")
     predict();
   };
 
@@ -123,8 +82,8 @@ function App() {
           lastVideoTime = video.currentTime;
           results = handLandmarker.detectForVideo(video, nowInMs);
           pose_results = poseLandmarker.detectForVideo(video, nowInMs);
-          console.log(results);
-          console.log(pose_results);
+          console.log("handlandmark result", results);
+          console.log("poselandmark result", pose_results);
         }
         canvasCtx?.save();
         canvasCtx?.clearRect(0, 0, canvas.width, canvas.height);
@@ -140,6 +99,10 @@ function App() {
               lineWidth: 2,
             });
           }
+
+          setCollectedHandFrames(prevFrames => [
+            ...prevFrames, results]);
+
         }
         if (pose_results.landmarks) {
           for (const landmarks of pose_results.landmarks) {
@@ -152,88 +115,101 @@ function App() {
             });
             drawConnectors(canvasCtx, landmarks, POSE_CONNECTIONS);
           }
-        }
-        canvasCtx.restore();
-        animationFrameRef.current = requestAnimationFrame(predict);
-      }
-    }
-  };
 
-  const stopPrediction = () => {
-    if (animationFrameRef.current !== null) {
+          setCollectedPoseFrames (prevFrames => [
+            ...prevFrames, pose_results]);
+        }
+
+          canvasCtx.restore();
+          animationFrameRef.current = requestAnimationFrame(predict);
+        }
+      }
+    };
+
+    const stopPrediction = () => {
+      console.log("stop prediction buttion is clicked!")
+      if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
 
         // Clearing the canvas
         const canvas = canvasRef.current;
         if (canvas) {
-            const ctx = canvas.getContext('2d');
-            ctx?.clearRect(0, 0, canvas.width, canvas.height);
+          const ctx = canvas.getContext('2d');
+          ctx?.clearRect(0, 0, canvas.width, canvas.height);
         }
-    }
-};
+      }
+      // preping the request format
+      setCollectedRequest(
+        {
+          "handLandmarks": collectedHandFrames,
+          "poseLandmarks": collectedPoseFrames
+        }
+        )
+    };
 
-  const sendLandmarksToServer = async () => {
-    const response = await fetch("http://localhost:5000/send-landmarks", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        hand: results.landmarks,
-        pose: pose_results.landmarks,
-      }),
-    });
+    useEffect(() => {
+      // This effect will be called when collectedRequest changes.
+      if (collectedRequest) {
+        console.log("collectedRequest", collectedRequest);
+        sendLandmarksToServer(collectedRequest);
+      }
+    }, [collectedRequest]);
+    
+    const sendLandmarksToServer = async (collectedFrames: any) => {
+      console.log("sending data to server");
+      try {
+        const response = await fetch("http://localhost:3030/landmarks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(collectedFrames)
+      });
 
-    const data = await response.json();
-    console.log(data.message);
-  };
+      const data = await response.json();
+      console.log(data.message);
+      } catch (error : any){
+        console.error("Error sending data to server:", error.message);
+      }
+    };
 
-  //sendLandmarksToServer();
-
-  const getLandmarksFromServer = async () => {
-    const response = await fetch("http://localhost:5000/get-landmarks");
-    const data = await response.json();
-    console.log(data);
-  };
-
-  //getLandmarksFromServer();
-
-  return (
-    <div className="App">
-      <div style={{ position: "absolute", zIndex: 2, top: 10, left: 10 }}>
-        <button onClick={initializeWebcam}>Enable Webcam</button>
-        <button onClick={startPrediction} style={{ marginLeft: 10 }}>
-          Start Prediction
-        </button>
-        <button onClick={stopPrediction} style={{ marginLeft: 10 }}>
-                    Stop Prediction
-        </button>
+    
+    return (
+      <div className="App">
+        <div style={{ position: "absolute", zIndex: 2, top: 10, left: 10 }}>
+          <button onClick={initializeWebcam}>Enable Webcam</button>
+          <button onClick={startPrediction} style={{ marginLeft: 10 }}>
+            Start Prediction
+          </button>
+          <button onClick={stopPrediction} style={{ marginLeft: 10 }}>
+            Stop Prediction
+          </button>
+        </div>
+        <video
+          autoPlay
+          playsInline
+          ref={videoRef}
+          id="video"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            textAlign: "center",
+          }}
+        />
+        <canvas
+          ref={canvasRef}
+          id="canvas_output"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            textAlign: "center",
+          }}
+        />
       </div>
-      <video
-        autoPlay
-        playsInline
-        ref={videoRef}
-        id="video"
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          textAlign: "center",
-        }}
-      />
-      <canvas
-        ref={canvasRef}
-        id="canvas_output"
-        style={{
-          position: "absolute",
-          left: 0,
-          top: 0,
-          textAlign: "center",
-        }}
-      />
-    </div>
-  );
-}
+    );
+  }
 
-export default App;
+  export default App;

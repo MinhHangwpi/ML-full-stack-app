@@ -132,7 +132,8 @@ class GesturePredictor:
         return x
 
     def pre_process_data(self):
-        data_list = [self.parse_each_frame(i) for i in range(GesturePredictor.FRAME_LEN)]
+        num_frames = len(self.data['handLandmarks'])
+        data_list = [self.parse_each_frame(i) for i in range(num_frames)]
         all_frames_df = pd.DataFrame(data_list)
         tensor_data = tf.convert_to_tensor(all_frames_df.values, dtype=tf.float32)
         return self.pre_process(tensor_data)
@@ -143,14 +144,14 @@ class GesturePredictor:
         prediction_str = "".join([self.rev_character_map.get(s, "") for s in np.argmax(output[GesturePredictor.REQUIRED_OUTPUT], axis=1)])
         return prediction_str
 
-if __name__ == '__main__':
-    script_directory = os.path.dirname(os.path.abspath(__file__))
-    file_name = os.path.join(script_directory, 'data.json')
-    model_path = os.path.join(script_directory, 'model.tflite')
-    char_to_pred_index_path = os.path.join(script_directory, 'character_to_prediction_index.json')
+# if __name__ == '__main__':
+#     script_directory = os.path.dirname(os.path.abspath(__file__))
+#     file_name = os.path.join(script_directory, 'data.json')
+#     model_path = os.path.join(script_directory, 'model.tflite')
+#     char_to_pred_index_path = os.path.join(script_directory, 'character_to_prediction_index.json')
 
-    start_time = time.time()
-    predictor = GesturePredictor(file_name, model_path, char_to_pred_index_path)
-    prediction = predictor.predict()
-    print(prediction)
-    print("completed running after", time.time() - start_time)
+#     start_time = time.time()
+#     predictor = GesturePredictor(file_name, model_path, char_to_pred_index_path)
+#     prediction = predictor.predict()
+#     print(prediction)
+#     print("completed running after", time.time() - start_time)
