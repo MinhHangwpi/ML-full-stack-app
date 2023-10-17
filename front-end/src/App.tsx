@@ -23,21 +23,31 @@ function App() {
   const [collectedHandFrames, setCollectedHandFrames] = useState<any[]>([]);
   const [collectedPoseFrames, setCollectedPoseFrames] = useState<any[]>([]);
   const [collectedRequest, setCollectedRequest] = useState<any>();
+  const [webcamEnabled, setWebcamEnabled] = useState(false);
+  const [serverMessage, setServerMessage] = useState('');
+  const [predictionActive, setPredictionActive] = useState(false); 
+  
 
   ///function to initialize webcam
   const initializeWebcam = async () => {
     const video = videoRef.current;
     //const canvas = canvasRef.current;
 
-    if (video) {
+    if (!webcamEnabled && video) {
       navigator.mediaDevices
         .getUserMedia({
           video: { width: 1280, height: 720 },
         })
         .then((stream) => {
           video.srcObject = stream;
+          setWebcamEnabled(true);
         });
       setupModels();
+    } else if (video){
+      const tracks = (video.srcObject as MediaStream).getTracks();
+      tracks.forEach(track => track.stop());
+      video.srcObject = null;
+      setWebcamEnabled(false);
     }
   };
 
@@ -87,6 +97,8 @@ function App() {
         }
         canvasCtx?.save();
         canvasCtx?.clearRect(0, 0, canvas.width, canvas.height);
+        canvasCtx?.scale(-1, 1);
+        canvasCtx?.translate(-video.videoWidth, 0);
 
         if (results.landmarks) {
           for (const landmarks of results.landmarks) {
@@ -148,6 +160,15 @@ function App() {
         )
     };
 
+    const togglePrediction = () => {
+      if (!predictionActive) {
+        startPrediction();
+      } else {
+        stopPrediction();
+      }
+      setPredictionActive(!predictionActive);
+    };
+
     useEffect(() => {
       // This effect will be called when collectedRequest changes.
       if (collectedRequest) {
@@ -169,8 +190,10 @@ function App() {
 
       const data = await response.json();
       console.log(data.message);
+      setServerMessage(data.message);
       } catch (error : any){
         console.error("Error sending data to server:", error.message);
+        setServerMessage(error.message);
       }
     };
 
@@ -178,12 +201,9 @@ function App() {
     return (
       <div className="App">
         <div style={{ position: "absolute", zIndex: 2, top: 10, left: 10 }}>
-          <button onClick={initializeWebcam}>Enable Webcam</button>
-          <button onClick={startPrediction} style={{ marginLeft: 10 }}>
-            Start Prediction
-          </button>
-          <button onClick={stopPrediction} style={{ marginLeft: 10 }}>
-            Stop Prediction
+          <button onClick={initializeWebcam}> {webcamEnabled ? 'Disable Webcam' : 'Enable Webcam'}</button>
+          <button onClick={togglePrediction} style={{ marginLeft: 10 }}>
+            {predictionActive ? 'Stop Prediction' : 'Start Prediction'}
           </button>
         </div>
         <video
@@ -196,6 +216,7 @@ function App() {
             left: 0,
             top: 0,
             textAlign: "center",
+            transform: 'scaleX(-1)' // Flip the video on the X-axis
           }}
         />
         <canvas
@@ -208,6 +229,9 @@ function App() {
             textAlign: "center",
           }}
         />
+        <div style={{ position: "absolute", zIndex: 2, top: 50, right: 10 }}>
+        {serverMessage}  {/* Display the message from the server */}
+        </div>
       </div>
     );
   }
