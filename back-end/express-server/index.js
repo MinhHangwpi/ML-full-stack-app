@@ -18,8 +18,8 @@ app.post('/landmarks', async (req, res) => {
      * Note: if you use docker-compose to run: use the http://flask_app url;
      * If not, you will need to keep both express and flask server up and use the url /localhost:5000
      */
-    const flaskServerURL = 'http://flask_app:5000/endpoint'; // Replace with your Flask server's details
-    // const flaskServerURL = 'http://localhost:5000/endpoint';
+    // const flaskServerURL = 'http://flask_app:5000/endpoint'; // Replace with your Flask server's details
+    const flaskServerURL = 'http://127.0.0.1:3050/endpoint';
     const response = await axios.post(flaskServerURL, req.body);
 
     // Respond to the client with the Flask server's response
