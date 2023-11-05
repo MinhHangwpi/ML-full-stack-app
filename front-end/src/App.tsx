@@ -6,15 +6,16 @@ import {
   PoseLandmarker,
 } from "@mediapipe/tasks-vision";
 import { drawConnectors, drawLandmarks, lerp } from "@mediapipe/drawing_utils";
-import { HAND_CONNECTIONS, POSE_CONNECTIONS } from './connections';
-
+import { HAND_CONNECTIONS, POSE_CONNECTIONS } from "./connections";
+import Typewriter from "typewriter-effect";
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 
 let handLandmarker: HandLandmarker;
 let poseLandmarker: PoseLandmarker;
 let lastVideoTime = -1;
 let results: { landmarks?: any[] } = {};
 let pose_results: { landmarks?: any[] } = {};
-
 
 function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -24,9 +25,9 @@ function App() {
   const [collectedPoseFrames, setCollectedPoseFrames] = useState<any[]>([]);
   const [collectedRequest, setCollectedRequest] = useState<any>();
   const [webcamEnabled, setWebcamEnabled] = useState(false);
-  const [serverMessage, setServerMessage] = useState('');
-  const [predictionActive, setPredictionActive] = useState(false); 
-  
+  const [serverMessage, setServerMessage] = useState("");
+  const [predictionActive, setPredictionActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   ///function to initialize webcam
   const initializeWebcam = async () => {
@@ -41,11 +42,15 @@ function App() {
         .then((stream) => {
           video.srcObject = stream;
           setWebcamEnabled(true);
+        })
+        .catch((err) => {
+          console.error("Error accessing the webcam:", err);
+          setServerMessage("Error accessing the webcam: " + err.message);
         });
       setupModels();
-    } else if (video){
+    } else if (video) {
       const tracks = (video.srcObject as MediaStream).getTracks();
-      tracks.forEach(track => track.stop());
+      tracks.forEach((track) => track.stop());
       video.srcObject = null;
       setWebcamEnabled(false);
     }
@@ -75,13 +80,15 @@ function App() {
   };
 
   const startPrediction = () => {
-    console.log("start prediction button is clicked!")
+    console.log("start prediction button is clicked!");
     predict();
   };
 
-  const predict = () => {
+  const predict = async () => {
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    
     if (video && canvas) {
       const canvasCtx = canvas?.getContext("2d");
       if (canvasCtx) {
@@ -112,9 +119,7 @@ function App() {
             });
           }
 
-          setCollectedHandFrames(prevFrames => [
-            ...prevFrames, results]);
-
+          setCollectedHandFrames((prevFrames) => [...prevFrames, results]);
         }
         if (pose_results.landmarks) {
           for (const landmarks of pose_results.landmarks) {
@@ -128,112 +133,176 @@ function App() {
             drawConnectors(canvasCtx, landmarks, POSE_CONNECTIONS);
           }
 
-          setCollectedPoseFrames (prevFrames => [
-            ...prevFrames, pose_results]);
+          setCollectedPoseFrames((prevFrames) => [...prevFrames, pose_results]);
+      
         }
 
-          canvasCtx.restore();
-          animationFrameRef.current = requestAnimationFrame(predict);
-        }
+        canvasCtx.restore();
+        animationFrameRef.current = requestAnimationFrame(predict);
+        
       }
-    };
+    }
+  };
 
-    const stopPrediction = () => {
-      console.log("stop prediction buttion is clicked!")
+  const prepareAndSendData = () => {
+    // Prep the request format
+    const requestPayload = {
+      handLandmarks: collectedHandFrames,
+      poseLandmarks: collectedPoseFrames,
+    };
+    // Stop collecting new frames
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+
+    // Clear any existing frames to start fresh if needed later
+    setCollectedHandFrames([]);
+    setCollectedPoseFrames([]);
+
+    // Send to server
+    sendLandmarksToServer(requestPayload);
+  };
+
+  const stopPrediction = () => {
+    console.log("stop prediction buttion is clicked!");
+    if (animationFrameRef.current !== null) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+
+      // Clearing the canvas
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      }
+    }
+    prepareAndSendData();
+  };
+
+  const togglePrediction = () => {
+    if (!predictionActive) {
+      startPrediction();
+    } else {
+      stopPrediction();
+    }
+    setPredictionActive(!predictionActive);
+  };
+
+  useEffect(() => {
+    // This effect will run when the length of collectedHandFrames or collectedPoseFrames changes
+    if (collectedHandFrames.length >= 128 || collectedPoseFrames.length >= 128) {
+      // Stop prediction and animation frames
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current);
         animationFrameRef.current = null;
-
-        // Clearing the canvas
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const ctx = canvas.getContext('2d');
-          ctx?.clearRect(0, 0, canvas.width, canvas.height);
+      }
+      // Clearing the canvas
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
       }
-      // preping the request format
-      setCollectedRequest(
-        {
-          "handLandmarks": collectedHandFrames,
-          "poseLandmarks": collectedPoseFrames
-        }
-        )
-    };
 
-    const togglePrediction = () => {
-      if (!predictionActive) {
-        startPrediction();
-      } else {
-        stopPrediction();
-      }
+      // Prepare and send data to the server or handle it accordingly
+      prepareAndSendData();
       setPredictionActive(!predictionActive);
-    };
+    }
+  }, [collectedHandFrames, collectedPoseFrames]);
+  
+  useEffect(() => {
+    // This effect will be called when collectedRequest changes.
+    if (collectedRequest) {
+      console.log("collectedRequest", collectedRequest);
+      sendLandmarksToServer(collectedRequest);
+    }
+  }, [collectedRequest]);
 
-    useEffect(() => {
-      // This effect will be called when collectedRequest changes.
-      if (collectedRequest) {
-        console.log("collectedRequest", collectedRequest);
-        sendLandmarksToServer(collectedRequest);
-      }
-    }, [collectedRequest]);
-    
-    const sendLandmarksToServer = async (collectedFrames: any) => {
-      console.log("sending data to server");
-      try {
-        const response = await fetch("http://localhost:3030/landmarks", {
+  const sendLandmarksToServer = async (collectedFrames: any) => {
+    setIsLoading(true); // Start loading
+    console.log("sending data to server");
+    try {
+      const response = await fetch("http://localhost:3030/landmarks", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(collectedFrames)
+        body: JSON.stringify(collectedFrames),
       });
 
       const data = await response.json();
       console.log(data.message);
       setServerMessage(data.message);
-      } catch (error : any){
-        console.error("Error sending data to server:", error.message);
-        setServerMessage(error.message);
-      }
-    };
+    } catch (error: any) {
+      console.error("Error sending data to server:", error.message);
+      setServerMessage(error.message);
+    } finally {
+      setIsLoading(false); // Stop loading whether the request succeeded or failed
+    }
+  };
 
-    
-    return (
-      <div className="App">
-        <div style={{ position: "absolute", zIndex: 2, top: 10, left: 10 }}>
-          <button onClick={initializeWebcam}> {webcamEnabled ? 'Disable Webcam' : 'Enable Webcam'}</button>
-          <button onClick={togglePrediction} style={{ marginLeft: 10 }}>
-            {predictionActive ? 'Stop Prediction' : 'Start Prediction'}
-          </button>
-        </div>
-        <video
-          autoPlay
-          playsInline
-          ref={videoRef}
-          id="video"
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            textAlign: "center",
-            transform: 'scaleX(-1)' // Flip the video on the X-axis
-          }}
-        />
-        <canvas
-          ref={canvasRef}
-          id="canvas_output"
-          style={{
-            position: "absolute",
-            left: 0,
-            top: 0,
-            textAlign: "center",
-          }}
-        />
-        <div style={{ position: "absolute", zIndex: 2, top: 50, right: 10 }}>
-        {serverMessage}  {/* Display the message from the server */}
-        </div>
+  return (
+    <div className="App">
+      <div style={{ position: "absolute", zIndex: 2, top: 10, left: 10 }}>
+        <button onClick={initializeWebcam}>
+          {" "}
+          {webcamEnabled ? "Disable Webcam" : "Enable Webcam"}
+        </button>
+        <button onClick={togglePrediction} style={{ marginLeft: 10 }}>
+          {predictionActive ? "Stop Prediction" : "Start Prediction"}
+        </button>
       </div>
-    );
-  }
+      <video
+        autoPlay
+        playsInline
+        ref={videoRef}
+        id="video"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          textAlign: "center",
+          transform: "scaleX(-1)", // Flip the video on the X-axis
+        }}
+      />
+      <canvas
+        ref={canvasRef}
+        id="canvas_output"
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          textAlign: "center",
+        }}
+      />
+      <div style={{ position: "absolute", zIndex: 2, top: 50, right: 10 }}>
+        {isLoading && (
+          <Box
+            sx={{
+              position: "absolute",
+              zIndex: 2,
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        )}
+        {isLoading == false && (
+          <Typewriter
+            options={{
+              strings: serverMessage,
+              autoStart: true,
+              loop: false,
+            }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}
 
-  export default App;
+export default App;
