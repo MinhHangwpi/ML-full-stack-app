@@ -1,3 +1,16 @@
+# version: '3'
+# services:
+#   node_app:
+#     build: ./express-server
+#     ports:
+#       - "3030:3030"
+#     depends_on:
+#       - flask_app
+#   flask_app:
+#     build: ./python
+#     ports:
+#       - "5000:5000"
+
 version: '3'
 services:
   node_app:
@@ -10,3 +23,7 @@ services:
     build: ./python
     ports:
       - "5000:5000"
+  react_app: # New service for React front-end
+    build: ../front-end
+    ports:
+      - "3000:3000"

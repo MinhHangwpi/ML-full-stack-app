@@ -27,7 +27,11 @@ def receive_data():
     prediction = predictor.predict()
     print("completed running after", time.time() - start_time)
 
+    # Delete the data.json file
+    # if os.path.exists(file_name):
+    #     os.remove(file_name)
+
     return jsonify({"message": f"The predicted phrase is {prediction}"})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=3050)  # Change the port if needed
+    app.run(host='0.0.0.0', port=5000)  # Change the port if needed
