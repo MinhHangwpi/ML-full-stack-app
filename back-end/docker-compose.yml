@@ -24,6 +24,6 @@ services:
     ports:
       - "5000:5000"
   react_app: # New service for React front-end
-    build: ../front-end
+    build: ../vite-front-end
     ports:
-      - "3000:3000"
+      - "5173:5173"
