@@ -16,6 +16,7 @@ let poseLandmarker: PoseLandmarker;
 let lastVideoTime = -1;
 let results: { landmarks?: any[] } = {};
 let pose_results: { landmarks?: any[] } = {};
+let AppMessage = ""
 
 function App() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -28,6 +29,7 @@ function App() {
   const [serverMessage, setServerMessage] = useState("");
   const [predictionActive, setPredictionActive] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showappmessage,setAppMessage] = useState(false);
 
   ///function to initialize webcam
   const initializeWebcam = async () => {
@@ -187,6 +189,9 @@ function App() {
       stopPrediction();
     }
     setPredictionActive(!predictionActive);
+    if (showappmessage){
+      setAppMessage(!showappmessage);
+    }
   };
 
   useEffect(() => {
@@ -209,6 +214,8 @@ function App() {
       // Prepare and send data to the server or handle it accordingly
       prepareAndSendData();
       setPredictionActive(!predictionActive);
+      AppMessage = "Payload is too large, sending to server"
+      setAppMessage(!showappmessage)
     }
   }, [collectedHandFrames, collectedPoseFrames]);
   
@@ -247,12 +254,14 @@ function App() {
     <div className="App">
       <div style={{ position: "absolute", zIndex: 2, top: 10, left: 10 }}>
         <button onClick={initializeWebcam}>
-          {" "}
+          
           {webcamEnabled ? "Disable Webcam" : "Enable Webcam"}
         </button>
+        {webcamEnabled && (
         <button onClick={togglePrediction} style={{ marginLeft: 10 }}>
           {predictionActive ? "Stop Prediction" : "Start Prediction"}
         </button>
+        )}
       </div>
       <video
         autoPlay
@@ -278,6 +287,9 @@ function App() {
         }}
       />
       <div style={{ position: "absolute", zIndex: 2, top: 50, right: 10 }}>
+        {showappmessage &&(
+        <p>{AppMessage}</p>
+        )}
         {isLoading && (
           <Box
             sx={{
@@ -288,7 +300,7 @@ function App() {
               transform: "translate(-50%, -50%)",
             }}
           >
-            <CircularProgress />
+            <CircularProgress/>
           </Box>
         )}
         {isLoading == false && (
