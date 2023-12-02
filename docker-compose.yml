@@ -1,0 +1,19 @@
+version: '3'
+services:
+  node_app:
+    build: ./back-end/express-server
+    ports:
+      - "3030:3030"
+    depends_on:
+      - flask_app
+    environment:
+      - NODE_ENV=development
+      - API_PORT=3030
+  flask_app:
+    build: ./back-end/python
+    ports:
+      - "5000:5000"
+  react_app: # New service for React front-end
+    build: ./vite-front-end
+    ports:
+      - "5173:5173"

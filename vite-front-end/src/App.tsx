@@ -210,30 +210,84 @@ function App() {
       setPredictionActive(!predictionActive);
     }
   }, [collectedHandFrames, collectedPoseFrames]);
+
+  function downloadObjectAsJson(exportObj: any, exportName: string): void {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", exportName + ".json");
+    document.body.appendChild(downloadAnchorNode); // Required for Firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  }
   
+  
+  
+  
+
+  // const sendLandmarksToServer = async (collectedFrames: any) => {
+  //   setIsLoading(true); // Start loading
+  //   console.log("sending data to server");
+  //   downloadObjectAsJson(collectedFrames, "collectedFrames")
+  //   try {
+  //     const response = await fetch("http://localhost:3030/landmarks", {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify(collectedFrames),
+  //     });
+
+  //     const data = await response.json();
+  //     console.log(data.message);
+  //     setServerMessage(data.message);
+  //   } catch (error: any) {
+  //     console.error("Error sending data to server:", error.message);
+  //     setServerMessage(error.message);
+  //   } finally {
+  //     setIsLoading(false); // Stop loading whether the request succeeded or failed
+  //   }
+  // };
 
   const sendLandmarksToServer = async (collectedFrames: any) => {
     setIsLoading(true); // Start loading
     console.log("sending data to server");
-    try {
-      const response = await fetch("http://localhost:3030/landmarks", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(collectedFrames),
-      });
+    downloadObjectAsJson(collectedFrames, "collectedFrames");
 
-      const data = await response.json();
-      console.log(data.message);
-      setServerMessage(data.message);
-    } catch (error: any) {
-      console.error("Error sending data to server:", error.message);
-      setServerMessage(error.message);
+    try {
+        const response = await fetch("http://localhost:3030/landmarks", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(collectedFrames),
+        });
+
+        // Check if the response is OK (status in the range 200-299)
+        if (!response.ok) {
+            // Server responded with an HTTP status outside 200-299 range
+            console.error("Express responded with status:", response.status);
+            setServerMessage(`Express Server error: ${response.status}`);
+            return;
+        }
+
+        try {
+            const data = await response.json();
+            console.log(data.message);
+            setServerMessage(data.message);
+        } catch (jsonError) {
+            // Error parsing JSON
+            console.error("Error parsing JSON response from Express Server:", jsonError);
+            setServerMessage("Error parsing JSON response from Express Server:");
+        }
+    } catch (networkError) {
+        console.error("Network error when sending data from react app to Express server:", (networkError as any).message);
+        setServerMessage((networkError as any).message);
     } finally {
-      setIsLoading(false); // Stop loading whether the request succeeded or failed
+        setIsLoading(false); // Stop loading whether the request succeeded or failed
     }
-  };
+};
+
 
   return (
     <div className="App">

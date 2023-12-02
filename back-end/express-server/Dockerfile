@@ -1,20 +1,20 @@
-# NodeApp/Dockerfile
-
-# Use official Node.js image
-FROM node:14
+# Use the same or compatible version as your development environment
+FROM node:latest
 
 # Set working directory
-WORKDIR /usr/src/app 
+WORKDIR /usr/src/app
 
-# Copy package.json and install dependencies
+# Copy package.json and package-lock.json
 COPY package*.json ./
-RUN npm install 
+
+# Install dependencies including 'devDependencies'
+RUN npm install
 
 # Copy the rest of the app
 COPY . .
 
-# Expose port
-EXPOSE 3000
+# Expose the port your app runs on
+EXPOSE 3030
 
-# Command to run the app
-CMD ["node", "index.js"]
+# Use nodemon for development to restart the app on file changes
+CMD ["node", "--loader", "ts-node/esm", "./src/server.ts"]
