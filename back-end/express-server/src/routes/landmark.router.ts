@@ -1,8 +1,8 @@
 import express from 'express';
-import { handleLandmarkData } from '../controllers/landmark.controllers.js';
+import { fetchPrediction } from '../controllers/landmark.controllers';
 
 const router = express.Router();
 
-router.post('/', handleLandmarkData);
+router.post('/', fetchPrediction);
 
 export default router;

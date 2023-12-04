@@ -35,49 +35,21 @@ const handednessesArraySchema = yup.array().of(
 
 
 const fullHandLandmarkerResultSchema = yup.object().shape({
-  landmarks: landmarksArraySchema,
-  worldLandmarks: worldLandmarksArraySchema,
-  handedness: handednessArraySchema,
-  handednesses: handednessesArraySchema
+  landmarks: landmarksArraySchema.required(),
+  worldLandmarks: worldLandmarksArraySchema.required(),
+  handedness: handednessArraySchema.required(),
+  handednesses: handednessesArraySchema.required()
 }
 )
 
 const fullPoseLandmarkerResultSchema = yup.object().shape({
-  landmarks: landmarksArraySchema,
-  worldLandmarks: worldLandmarksArraySchema
+  landmarks: landmarksArraySchema.required(),
+  worldLandmarks: worldLandmarksArraySchema.required()
 })
 
 
 // Define the full schema for the JSON object
 export const fullSchema = yup.object().shape({
-  handLandmarks: yup.array().of(fullHandLandmarkerResultSchema),
-  poseLandmarks: yup.array().of(fullPoseLandmarkerResultSchema),
+  handLandmarks: yup.array().of(fullHandLandmarkerResultSchema).required(),
+  poseLandmarks: yup.array().of(fullPoseLandmarkerResultSchema).required(),
 });
-
-
-
-// Function to read and validate JSON data
-export const validateJsonData = (filePath: string) => {
-
-  fs.readFile(filePath, 'utf8', (err, jsonString) => {
-    if (err) {
-      console.error("Error reading file:", err);
-      return;
-    }
-    try {
-      const data = JSON.parse(jsonString);
-
-      fullSchema.validate(data)
-        .then(validatedData => {
-          console.log('Validation succeeded:', validatedData);
-        })
-        .catch(validationError => {
-          console.error('Validation failed:', validationError);
-        });
-    } catch (parseError) {
-      console.error('Error parsing JSON:', parseError);
-    }
-  });
-}
-
-validateJsonData('/home/hang/Downloads/received_data.json');

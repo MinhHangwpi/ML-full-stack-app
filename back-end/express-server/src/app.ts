@@ -3,7 +3,7 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
-import landmarkRoutes from './routes/landmark.router.js';
+import landmarkRoutes from './routes/landmark.router';
 
 const app = express();
 

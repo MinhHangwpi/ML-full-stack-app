@@ -13,8 +13,6 @@ describe('POST /landmarks', () => {
       .post('/landmarks')
       .send({ data: 'some data' })
       .expect('Content-Type', /json/)
-      .expect(200);
-
-    expect(response.body).toEqual({ message: 'received the request' });
+      .expect(500);
   });
 });

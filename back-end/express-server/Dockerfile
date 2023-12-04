@@ -13,8 +13,11 @@ RUN npm install
 # Copy the rest of the app
 COPY . .
 
+# Build TypeScript code
+RUN npm run build
+
 # Expose the port your app runs on
 EXPOSE 3030
 
 # Use nodemon for development to restart the app on file changes
-CMD ["node", "--loader", "ts-node/esm", "./src/server.ts"]
+CMD ["node", "./dist/server.js"]
