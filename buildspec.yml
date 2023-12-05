@@ -1,7 +1,7 @@
 # contains a collection of build commands and settings to instruct CodeBuild to build the app,
 # including fetching source code, running tests, and building container images.
 
-version: 0.1
+version: 0.2
 phases:
   install:
     runtime-versions:
