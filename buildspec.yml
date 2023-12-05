@@ -1,0 +1,25 @@
+# contains a collection of build commands and settings to instruct CodeBuild to build the app,
+# including fetching source code, running tests, and building container images.
+
+version: 0.1
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 821125616694.dkr.ecr.us-east-1.amazonaws.com
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker-compose --file=docker-compose-prod.yml build
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker image...
+      - docker-compose --file=docker-compose-prod.yml push
+artifacts:
+  files:
+    - 'Dockerrun.aws.json'
