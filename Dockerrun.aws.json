@@ -1,0 +1,55 @@
+{
+    "AWSEBDockerrunVersion": "1",
+    "containerDefinitions": [
+      {
+        "name": "react_app",
+        "image": "821125616694.dkr.ecr.us-east-1.amazonaws.com/react_app",
+        "memory": 128,
+        "portMappings": [
+          {
+            "hostPort": 5173,
+            "containerPort": 5173
+          }
+        ],
+        "essential": true
+      },
+      {
+        "name": "node_app",
+        "image": "821125616694.dkr.ecr.us-east-1.amazonaws.com/node_app",
+        "memory": 128,
+        "portMappings": [
+          {
+            "hostPort": 3030,
+            "containerPort": 3030
+          }
+        ],
+        "links": ["flask_app"],
+        "essential": true
+      },
+      {
+        "name": "flask_app",
+        "image": "821125616694.dkr.ecr.us-east-1.amazonaws.com/flask_app",
+        "memory": 128,
+        "portMappings": [
+          {
+            "hostPort": 5000,
+            "containerPort": 5000
+          }
+        ],
+        "essential": true
+      },
+      {
+        "name": "nginx",
+        "image": "821125616694.dkr.ecr.us-east-1.amazonaws.com/nginx",
+        "memory": 128,
+        "portMappings": [
+          {
+            "hostPort": 8080,
+            "containerPort": 80
+          }
+        ],
+        "links": ["react_app", "node_app"],
+        "essential": true
+      }
+    ]
+  }

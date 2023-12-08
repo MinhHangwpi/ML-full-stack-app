@@ -1,0 +1,31 @@
+version: '3'
+services:
+  react_app:
+    build: ./vite-front-end
+    image: 821125616694.dkr.ecr.us-east-1.amazonaws.com/react_app
+    ports:
+      - "5173:5173"
+  node_app:
+    build: ./back-end/express-server
+    image: 821125616694.dkr.ecr.us-east-1.amazonaws.com/node_app
+    ports:
+      - "3030:3030"
+    depends_on:
+      - flask_app
+    environment:
+      - NODE_ENV=development
+      - API_PORT=3030
+  flask_app:
+    build: ./back-end/python
+    image: 821125616694.dkr.ecr.us-east-1.amazonaws.com/flask_app
+    ports:
+      - "5000:5000"
+  nginx:
+    container_name: nginx
+    image: 821125616694.dkr.ecr.us-east-1.amazonaws.com/nginx
+    depends_on:
+      - react_app
+      - node_app
+    ports:
+      - "8080:80"
+    build: ./nginx

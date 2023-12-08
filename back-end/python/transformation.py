@@ -32,37 +32,44 @@ class GesturePredictor:
         self.tensor_data = self.pre_process_data()
 
     def parse_each_frame(self, frame_index):
-        overall_dic = dict()
+        try:
+            overall_dic = dict()
 
-        # frame_hand
-        frame_hand = self.data['handLandmarks'][frame_index]
-        # frame_pose
+            # frame_hand
+            frame_hand = self.data['handLandmarks'][frame_index]
+            # frame_pose
 
-        frame_pose = self.data['poseLandmarks'][frame_index]
+            frame_pose = self.data['poseLandmarks'][frame_index]
 
-        # processing handLandmarks    
-        for i in range(0, len(frame_hand['landmarks'])):
-            # for each hand
-            landmarks_array = frame_hand['landmarks'][i] # 21 records
-            handednesses_array = frame_hand['handednesses'][i]
+            # processing handLandmarks    
+            for i in range(0, len(frame_hand['landmarks'])):
+                # for each hand
+                landmarks_array = frame_hand['landmarks'][i] # 21 records
+                handednesses_array = frame_hand['handednesses'][i]
 
-            for j in range(21):
-                which_hand = handednesses_array[0]['categoryName'].lower()
-                overall_dic[f"x_{which_hand}_hand_{j+1}"] = float(landmarks_array[j]['x'])
-                overall_dic[f"y_{which_hand}_hand_{j+1}"] = float(landmarks_array[j]['y'])
-                overall_dic[f"z_{which_hand}_hand_{j+1}"] = float(landmarks_array[j]['z'])
+                for j in range(21):
+                    which_hand = handednesses_array[0]['categoryName'].lower()
+                    overall_dic[f"x_{which_hand}_hand_{j+1}"] = float(landmarks_array[j]['x'])
+                    overall_dic[f"y_{which_hand}_hand_{j+1}"] = float(landmarks_array[j]['y'])
+                    overall_dic[f"z_{which_hand}_hand_{j+1}"] = float(landmarks_array[j]['z'])
 
-        # processing poseLandmarks:
+            # processing poseLandmarks:
 
-        for p in self.POSE:
-            # print(len(frame['landmarks'][0]))
-            coord = frame_pose['landmarks'][0][p]
-            overall_dic[f"x_pose_{p}"] = float(coord['x'])
-            overall_dic[f"y_pose_{p}"] = float(coord['y'])
-            overall_dic[f"z_pose_{p}"] = float(coord['z'])
+            for p in self.POSE:
+                # print(len(frame['landmarks'][0]))
+                coord = frame_pose['landmarks'][0][p]
+                overall_dic[f"x_pose_{p}"] = float(coord['x'])
+                overall_dic[f"y_pose_{p}"] = float(coord['y'])
+                overall_dic[f"z_pose_{p}"] = float(coord['z'])
 
-        # df = pd.DataFrame([overall_dic])
-        return overall_dic
+            # df = pd.DataFrame([overall_dic])
+            return overall_dic
+        except KeyError as e:
+            raise ValueError(f"Key error in `parse_each_frame()`: {e}")
+        except IndexError as e:
+            raise ValueError(f"Index error in parsing frame: {e}")
+        except Exception as e:
+            raise ValueError(f"Unexpected error in parsing frame: {e}")
     
     def resize_pad(self, x):
         if tf.shape(x)[0] < self.FRAME_LEN:
@@ -80,6 +87,7 @@ class GesturePredictor:
         RPOSE_IDX = [i for i, col in enumerate(FEATURE_COLUMNS)  if  "pose" in col and int(col[-2:]) in self.RPOSE]
         LPOSE_IDX = [i for i, col in enumerate(FEATURE_COLUMNS)  if  "pose" in col and int(col[-2:]) in self.LPOSE]
 
+        print(f"shape of x before tf.gather: ", tf.shape(x))
 
         rhand = tf.gather(x, RHAND_IDX, axis=1)
         lhand = tf.gather(x, LHAND_IDX, axis=1)
@@ -125,6 +133,8 @@ class GesturePredictor:
         pose = tf.concat([pose_x[..., tf.newaxis], pose_y[..., tf.newaxis], pose_z[..., tf.newaxis]], axis=-1)
         
         x = tf.concat([hand, pose], axis=1)
+
+        print(f"Shape of x before resize x", tf.shape(x))
         x = self.resize_pad(x)
         
         x = tf.where(tf.math.is_nan(x), tf.zeros_like(x), x)
@@ -132,16 +142,26 @@ class GesturePredictor:
         return x
 
     def pre_process_data(self):
-        data_list = [self.parse_each_frame(i) for i in range(GesturePredictor.FRAME_LEN)]
-        all_frames_df = pd.DataFrame(data_list)
-        tensor_data = tf.convert_to_tensor(all_frames_df.values, dtype=tf.float32)
-        return self.pre_process(tensor_data)
-
+        try:
+            num_frames = len(self.data['handLandmarks'])
+            data_list = [self.parse_each_frame(i) for i in range(num_frames)]
+            all_frames_df = pd.DataFrame(data_list)
+            tensor_data = tf.convert_to_tensor(all_frames_df.values, dtype=tf.float32)
+            return self.pre_process(tensor_data)
+        except ValueError as e:
+            print(f"Error processing data: {e}")
+            return None
+        
     def predict(self):
-        prediction_fn = self.interpreter.get_signature_runner(GesturePredictor.REQUIRED_SIGNATURE)
-        output = prediction_fn(inputs=self.tensor_data)
-        prediction_str = "".join([self.rev_character_map.get(s, "") for s in np.argmax(output[GesturePredictor.REQUIRED_OUTPUT], axis=1)])
-        return prediction_str
+        try:
+            prediction_fn = self.interpreter.get_signature_runner(GesturePredictor.REQUIRED_SIGNATURE)
+            output = prediction_fn(inputs=self.tensor_data)
+            prediction_str = "".join([self.rev_character_map.get(s, "") for s in np.argmax(output[GesturePredictor.REQUIRED_OUTPUT], axis=1)])
+            return prediction_str
+        except Exception as e:
+            print(f"Error in prediction: {e}")
+            return None
+        
 
 if __name__ == '__main__':
     script_directory = os.path.dirname(os.path.abspath(__file__))
